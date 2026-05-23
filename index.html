@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pomodoro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --focus-bg: #0f0f0f;
+    --focus-text: #f5f0e8;
+    --focus-accent: #e8c27a;
+    --focus-accent-dim: #7a6535;
+    --focus-ring: #2a2520;
+    --focus-muted: #5a5248;
+    --focus-card: #1a1814;
+    --focus-border: #2f2a24;
+
+    --break-bg: #f0f4f0;
+    --break-text: #1a2a1a;
+    --break-accent: #3d7a4a;
+    --break-accent-dim: #a8c8b0;
+    --break-ring: #c8dcc8;
+    --break-muted: #7a9a80;
+    --break-card: #e4ece4;
+    --break-border: #c0d4c0;
+
+    --bg: var(--focus-bg);
+    --text: var(--focus-text);
+    --accent: var(--focus-accent);
+    --accent-dim: var(--focus-accent-dim);
+    --ring: var(--focus-ring);
+    --muted: var(--focus-muted);
+    --card: var(--focus-card);
+    --border: var(--focus-border);
+
+    --transition: 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-fast: 0.2s ease;
+  }
+
+  body.break-mode {
+    --bg: var(--break-bg);
+    --text: var(--break-text);
+    --accent: var(--break-accent);
+    --accent-dim: var(--break-accent-dim);
+    --ring: var(--break-ring);
+    --muted: var(--break-muted);
+    --card: var(--break-card);
+    --border: var(--break-border);
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    transition: background var(--transition), color var(--transition);
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Subtle grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.6;
+  }
+
+  .page-wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  /* Mode label */
+  .mode-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 400;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    opacity: 0.8;
+    margin-bottom: 2rem;
+    transition: color var(--transition), opacity var(--transition);
+    min-height: 1rem;
+  }
+
+  /* SVG Ring */
+  .timer-ring-wrapper {
+    position: relative;
+    width: min(66vw, 300px);
+    height: min(66vw, 300px);
+    margin-bottom: 2.5rem;
+  }
+
+  .timer-svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+
+  .ring-track {
+    fill: none;
+    stroke: var(--ring);
+    stroke-width: 3;
+    transition: stroke var(--transition);
+  }
+
+  .ring-progress {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 3;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s linear, stroke var(--transition);
+  }
+
+  .timer-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+  }
+
+  .timer-display {
+    font-family: 'DM Mono', monospace;
+    font-size: clamp(3rem, 12vw, 4.5rem);
+    font-weight: 300;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    transition: color var(--transition);
+    line-height: 1;
+  }
+
+  .timer-display.pulse {
+    animation: soft-pulse 0.5s ease;
+  }
+
+  @keyframes soft-pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+    100% { transform: scale(1); }
+  }
+
+  .session-count {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    transition: color var(--transition);
+  }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    padding: 0.6rem 1.1rem;
+    border-radius: 2px;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+  }
+
+  .btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg);
+    font-weight: 500;
+    padding: 0.75rem 2rem;
+    font-size: 0.75rem;
+    min-width: 120px;
+    text-align: center;
+  }
+
+  .btn-primary:hover {
+    opacity: 0.85;
+    color: var(--bg);
+    border-color: var(--accent);
+  }
+
+  /* Session done flash */
+  @keyframes done-flash {
+    0%   { opacity: 1; }
+    20%  { opacity: 0.3; }
+    40%  { opacity: 1; }
+    60%  { opacity: 0.3; }
+    80%  { opacity: 1; }
+    100% { opacity: 1; }
+  }
+
+  body.session-done .timer-display {
+    animation: done-flash 0.8s ease;
+  }
+
+  /* Settings */
+  .settings-toggle {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent-dim);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem 0;
+    margin-bottom: 1rem;
+    transition: color var(--transition-fast);
+  }
+
+  .settings-toggle:hover { color: var(--accent); }
+  .settings-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+  .settings-panel {
+    width: 100%;
+    border: 1px solid var(--border);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    display: none;
+    flex-direction: column;
+    gap: 1rem;
+    transition: border-color var(--transition);
+  }
+
+  .settings-panel.open { display: flex; }
+
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .setting-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .setting-input-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .setting-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+    border-radius: 2px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .setting-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .setting-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .setting-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.9rem;
+    color: var(--text);
+    min-width: 2.5rem;
+    text-align: center;
+  }
+
+  /* History */
+  .history-section {
+    width: 100%;
+  }
+
+  .history-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    transition: border-color var(--transition);
+  }
+
+  .history-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .history-count {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent);
+  }
+
+  .history-empty {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    padding: 1rem 0;
+    opacity: 0.6;
+    font-style: italic;
+  }
+
+  .history-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    max-height: 200px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-dim) transparent;
+  }
+
+  .history-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.55rem 0.75rem;
+    background: var(--card);
+    border-left: 2px solid var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text);
+    opacity: 0;
+    transform: translateX(-8px);
+    animation: slide-in 0.35s ease forwards;
+    transition: background var(--transition);
+  }
+
+  @keyframes slide-in {
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .history-item-label {
+    color: var(--accent);
+    margin-right: 0.5rem;
+  }
+
+  .history-item-time {
+    color: var(--muted);
+    font-size: 0.65rem;
+  }
+
+  /* Responsive */
+  @media (max-width: 400px) {
+    .timer-ring-wrapper {
+      width: 75vw;
+      height: 75vw;
+    }
+
+    .controls { gap: 0.75rem; }
+    .btn { padding: 0.55rem 0.85rem; font-size: 0.65rem; }
+    .btn-primary { padding: 0.65rem 1.5rem; min-width: 100px; }
+  }
+
+  @media (min-width: 1200px) {
+    body { justify-content: center; }
+    .page-wrapper { max-width: 520px; }
+  }
+</style>
+</head>
+<body>
+<div class="page-wrapper">
+  <div class="mode-label" id="modeLabel" aria-live="polite">Focus</div>
+
+  <div class="timer-ring-wrapper" role="timer" aria-label="Pomodoro timer">
+    <svg class="timer-svg" viewBox="0 0 100 100" aria-hidden="true">
+      <circle class="ring-track" cx="50" cy="50" r="45"/>
+      <circle class="ring-progress" id="ringProgress" cx="50" cy="50" r="45"
+        stroke-dasharray="282.74" stroke-dashoffset="0"/>
+    </svg>
+    <div class="timer-center">
+      <div class="timer-display" id="timerDisplay" aria-atomic="true">25:00</div>
+      <div class="session-count" id="sessionCount">session 1</div>
+    </div>
+  </div>
+
+  <div class="controls" role="group" aria-label="Timer controls">
+    <button class="btn" id="resetBtn" aria-label="Reset timer">Reset</button>
+    <button class="btn btn-primary" id="startBtn" aria-label="Start timer">Start</button>
+    <button class="btn" id="skipBtn" aria-label="Skip to next phase">Skip</button>
+  </div>
+
+  <button class="settings-toggle" id="settingsToggle" aria-expanded="false" aria-controls="settingsPanel">
+    <span id="settingsToggleLabel">⊕ Settings</span>
+  </button>
+
+  <div class="settings-panel" id="settingsPanel" role="region" aria-label="Timer settings">
+    <div class="setting-row">
+      <span class="setting-label">Focus</span>
+      <div class="setting-input-group">
+        <button class="setting-btn" id="focusMinus" aria-label="Decrease focus minutes">−</button>
+        <span class="setting-value" id="focusVal" aria-live="polite">25</span>
+        <button class="setting-btn" id="focusPlus" aria-label="Increase focus minutes">+</button>
+        <span class="setting-label" style="margin-left:4px">min</span>
+      </div>
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">Break</span>
+      <div class="setting-input-group">
+        <button class="setting-btn" id="breakMinus" aria-label="Decrease break minutes">−</button>
+        <span class="setting-value" id="breakVal" aria-live="polite">5</span>
+        <button class="setting-btn" id="breakPlus" aria-label="Increase break minutes">+</button>
+        <span class="setting-label" style="margin-left:4px">min</span>
+      </div>
+    </div>
+  </div>
+
+  <section class="history-section" aria-label="Today's completed focus sessions">
+    <div class="history-header">
+      <span class="history-title">Today</span>
+      <span class="history-count" id="historyCount" aria-live="polite"></span>
+    </div>
+    <p class="history-empty" id="historyEmpty">No sessions yet — start your first pomodoro.</p>
+    <ul class="history-list" id="historyList" aria-label="Completed sessions"></ul>
+  </section>
+</div>
+
+<script>
+(function() {
+  const STORAGE_KEY = 'pomodoro_history_v2';
+  const CIRC = 2 * Math.PI * 45; // ~282.74
+
+  let focusMin = 25;
+  let breakMin = 5;
+  let isRunning = false;
+  let isBreak = false;
+  let sessionNum = 1;
+  let totalSeconds = focusMin * 60;
+  let remaining = totalSeconds;
+  let interval = null;
+
+  // Audio context for beeps
+  let audioCtx = null;
+  function getAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+  }
+
+  function playDone() {
+    try {
+      const ctx = getAudio();
+      const now = ctx.currentTime;
+      const freqs = [523.25, 659.26, 783.99]; // C5, E5, G5
+      freqs.forEach((f, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = f;
+        gain.gain.setValueAtTime(0, now + i * 0.22);
+        gain.gain.linearRampToValueAtTime(0.18, now + i * 0.22 + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.22 + 0.5);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + i * 0.22);
+        osc.stop(now + i * 0.22 + 0.55);
+      });
+    } catch (e) {}
+  }
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  function fmt(secs) {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return pad(m) + ':' + pad(s);
+  }
+
+  function todayKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  }
+
+  function loadHistory() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
+      const obj = JSON.parse(raw);
+      if (obj.date !== todayKey()) return [];
+      return obj.sessions || [];
+    } catch (e) { return []; }
+  }
+
+  function saveHistory(sessions) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: todayKey(), sessions }));
+    } catch (e) {}
+  }
+
+  let history = loadHistory();
+
+  // DOM refs
+  const timerDisplay = document.getElementById('timerDisplay');
+  const ringProgress = document.getElementById('ringProgress');
+  const modeLabel = document.getElementById('modeLabel');
+  const sessionCount = document.getElementById('sessionCount');
+  const startBtn = document.getElementById('startBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const skipBtn = document.getElementById('skipBtn');
+  const settingsToggle = document.getElementById('settingsToggle');
+  const settingsPanel = document.getElementById('settingsPanel');
+  const settingsToggleLabel = document.getElementById('settingsToggleLabel');
+  const focusVal = document.getElementById('focusVal');
+  const breakVal = document.getElementById('breakVal');
+  const historyList = document.getElementById('historyList');
+  const historyEmpty = document.getElementById('historyEmpty');
+  const historyCount = document.getElementById('historyCount');
+
+  function updateRing() {
+    const pct = remaining / totalSeconds;
+    const offset = CIRC * (1 - pct);
+    ringProgress.style.strokeDashoffset = offset.toFixed(2);
+  }
+
+  function updateDisplay() {
+    timerDisplay.textContent = fmt(remaining);
+    document.title = fmt(remaining) + (isBreak ? ' · Break' : ' · Focus') + ' — Pomodoro';
+    updateRing();
+    sessionCount.textContent = 'session ' + sessionNum;
+    modeLabel.textContent = isBreak ? 'Break' : 'Focus';
+    document.body.classList.toggle('break-mode', isBreak);
+  }
+
+  function renderHistory() {
+    historyEmpty.style.display = history.length === 0 ? 'block' : 'none';
+    historyList.innerHTML = '';
+    historyCount.textContent = history.length > 0 ? history.length + ' done' : '';
+    history.forEach((item, i) => {
+      const li = document.createElement('li');
+      li.className = 'history-item';
+      li.style.animationDelay = '0ms'; // instant for reloads
+      li.innerHTML =
+        '<span><span class="history-item-label" aria-hidden="true">✓</span>' + item.duration + ' focus</span>' +
+        '<span class="history-item-time">' + item.time + '</span>';
+      li.setAttribute('aria-label', 'Completed ' + item.duration + ' focus session at ' + item.time);
+      historyList.appendChild(li);
+    });
+    // Scroll to bottom
+    historyList.scrollTop = historyList.scrollHeight;
+  }
+
+  function addHistoryItem(durationSecs) {
+    const now = new Date();
+    const h = now.getHours();
+    const m = pad(now.getMinutes());
+    const ampm = h >= 12 ? 'pm' : 'am';
+    const h12 = ((h % 12) || 12);
+    const timeStr = h12 + ':' + m + ampm;
+    const durStr = fmt(durationSecs);
+    history.push({ duration: durStr, time: timeStr });
+    saveHistory(history);
+    renderHistory();
+    // Animate newest
+    const items = historyList.querySelectorAll('.history-item');
+    const last = items[items.length - 1];
+    if (last) {
+      last.style.animationDelay = '0ms';
+      last.style.animation = 'none';
+      requestAnimationFrame(() => {
+        last.style.animation = 'slide-in 0.35s ease forwards';
+      });
+    }
+  }
+
+  function onTick() {
+    remaining--;
+    updateDisplay();
+    if (remaining <= 0) {
+      clearInterval(interval);
+      interval = null;
+      isRunning = false;
+      startBtn.textContent = 'Start';
+
+      document.body.classList.add('session-done');
+      setTimeout(() => document.body.classList.remove('session-done'), 900);
+
+      playDone();
+
+      if (!isBreak) {
+        addHistoryItem(totalSeconds);
+      }
+
+      // Pulse the timer
+      timerDisplay.classList.remove('pulse');
+      void timerDisplay.offsetWidth;
+      timerDisplay.classList.add('pulse');
+
+      // Auto-transition
+      setTimeout(() => {
+        switchPhase();
+        startTimer();
+      }, 1200);
+    }
+  }
+
+  function startTimer() {
+    if (interval) clearInterval(interval);
+    isRunning = true;
+    startBtn.textContent = 'Pause';
+    interval = setInterval(onTick, 1000);
+  }
+
+  function pauseTimer() {
+    clearInterval(interval);
+    interval = null;
+    isRunning = false;
+    startBtn.textContent = 'Resume';
+  }
+
+  function switchPhase() {
+    isBreak = !isBreak;
+    if (!isBreak) sessionNum++;
+    totalSeconds = (isBreak ? breakMin : focusMin) * 60;
+    remaining = totalSeconds;
+    updateDisplay();
+  }
+
+  function resetTimer() {
+    clearInterval(interval);
+    interval = null;
+    isRunning = false;
+    isBreak = false;
+    totalSeconds = focusMin * 60;
+    remaining = totalSeconds;
+    startBtn.textContent = 'Start';
+    document.body.classList.remove('break-mode');
+    updateDisplay();
+  }
+
+  // Button handlers
+  startBtn.addEventListener('click', () => {
+    if (isRunning) pauseTimer();
+    else startTimer();
+  });
+
+  resetBtn.addEventListener('click', resetTimer);
+
+  skipBtn.addEventListener('click', () => {
+    clearInterval(interval);
+    interval = null;
+    isRunning = false;
+    startBtn.textContent = 'Start';
+    if (!isBreak) {
+      // Completing focus early doesn't count for history
+    }
+    switchPhase();
+  });
+
+  // Settings
+  settingsToggle.addEventListener('click', () => {
+    const open = settingsPanel.classList.toggle('open');
+    settingsToggle.setAttribute('aria-expanded', open);
+    settingsToggleLabel.textContent = open ? '⊖ Settings' : '⊕ Settings';
+  });
+
+  document.getElementById('focusMinus').addEventListener('click', () => {
+    if (focusMin > 1) { focusMin--; focusVal.textContent = focusMin; if (!isRunning && !isBreak) resetTimer(); }
+  });
+  document.getElementById('focusPlus').addEventListener('click', () => {
+    if (focusMin < 90) { focusMin++; focusVal.textContent = focusMin; if (!isRunning && !isBreak) resetTimer(); }
+  });
+  document.getElementById('breakMinus').addEventListener('click', () => {
+    if (breakMin > 1) { breakMin--; breakVal.textContent = breakMin; if (!isRunning && isBreak) { totalSeconds = breakMin * 60; remaining = totalSeconds; updateDisplay(); } }
+  });
+  document.getElementById('breakPlus').addEventListener('click', () => {
+    if (breakMin < 30) { breakMin++; breakVal.textContent = breakMin; if (!isRunning && isBreak) { totalSeconds = breakMin * 60; remaining = totalSeconds; updateDisplay(); } }
+  });
+
+  // Keyboard shortcut: Space to start/pause
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && e.target === document.body) {
+      e.preventDefault();
+      startBtn.click();
+    }
+  });
+
+  // Init
+  updateDisplay();
+  renderHistory();
+})();
+</script>
+</body>
+</html>
