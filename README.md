@@ -34,10 +34,7 @@ The entire project is contained in a single HTML file and requires **no build to
 
 The timer follows a simple Pomodoro cycle:
 
-Focus
-  ↓
-Break
-  ↓
+```text
 Focus
   ↓
 Break
@@ -47,7 +44,7 @@ Focus
 Break
   ↓
 ...
-
+```
 When a session ends, the application automatically switches to the next session type and plays an audible notification.
 
 Completed focus sessions are recorded in the browser using localStorage and displayed as daily history.
