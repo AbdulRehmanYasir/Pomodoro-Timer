@@ -43,7 +43,7 @@ Focus
   ↓
 Break
   ↓
-...
+...```
 
 When a session ends, the application automatically switches to the next session type and plays an audible notification.
 
