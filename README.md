@@ -1,32 +1,46 @@
-# Pomodoro Timer
+<div align="center">
 
-A single-file, vanilla HTML/CSS/JS Pomodoro timer with daily session history.
+# 🍅 Pomodoro Timer
 
-## How to run
+### Focus Better. Work Smarter. Stay Consistent.
 
-No build step, no dependencies, no server required.
+A lightweight, single-file Pomodoro timer built with **HTML, CSS, and JavaScript**, featuring configurable focus and break sessions, smooth animations, audible notifications, and persistent daily history.
 
-```bash
-# Option 1 — just open the file
-open index.html
+</div>
 
-# Option 2 — serve locally (avoids any browser quirks with file:// and localStorage)
-npx serve .
-# then visit http://localhost:3000
+---
 
-# Option 3 — Python one-liner
-python3 -m http.server 8080
-# then visit http://localhost:8080
-```
+## 📖 Overview
 
-Requires: a modern browser (Chrome 90+, Firefox 88+, Safari 14+). No Node, no npm install needed for Option 1.
+**Pomodoro Timer** is a simple, dependency-free productivity timer designed around the Pomodoro technique.
 
-## Features
+It provides configurable focus and break sessions while keeping a record of completed sessions for the current day.
 
-- **Focus + break timer** — configurable from 1–90 min focus, 1–30 min break
-- **Smooth ring animation** — SVG stroke-dashoffset ticks down in real time
-- **Audible chime** — three-note ascending chord via Web Audio API on session end
-- **Auto-transition** — moves from focus → break → focus automatically
-- **Daily history** — persists in `localStorage`, resets on a new calendar day
-- **Keyboard shortcut** — `Space` to start/pause when focused on the page
-- **Two visual modes** — dark warm (focus) ↔ light green (break), animated transition
+The entire project is contained in a single HTML file and requires **no build tools, frameworks, or npm dependencies**.
+
+## ✨ Core Features
+
+* ⏱️ **Focus & Break Timer** — Configure focus sessions from 1–90 minutes and breaks from 1–30 minutes.
+* 🎨 **Animated Timer Ring** — SVG-based progress ring updates smoothly as time passes.
+* 🔔 **Audible Notifications** — Plays a three-note ascending chime when a session ends.
+* 🔄 **Automatic Transitions** — Automatically switches between focus and break sessions.
+* 📊 **Daily Session History** — Completed sessions are stored using `localStorage`.
+* ⌨️ **Keyboard Shortcut** — Press `Space` to start or pause the timer.
+* 🌙 **Two Visual Modes** — Warm dark focus mode and light green break mode.
+* 💾 **Persistent Data** — Session history remains available across browser refreshes.
+* 📱 **Lightweight & Responsive** — No frameworks or external dependencies required.
+
+## 🧠 How It Works
+
+The timer follows a simple cycle:
+
+```text
+Focus
+  ↓
+Break
+  ↓
+Focus
+  ↓
+Break
+  ↓
+...
